@@ -78,11 +78,17 @@
   <div class="login-box">
     <h2>Login to Your Account</h2>
     <div id="error-message" class="error-message"></div>
+<<<<<<< HEAD
     <form id="login-form">
     <input type="email" id="login-email" placeholder="Email" required>
     <input type="password" id="login-password" placeholder="Password" required>
     <button type="submit">Login</button>
     </form>
+=======
+    <input type="email" id="login-email" placeholder="Email" required>
+    <input type="password" id="login-password" placeholder="Password" required>
+    <button onclick="handleLogin()">Login</button>
+>>>>>>> c968cc5d84a1ac5624c763976e1bfb4b1a18921e
     <div class="signup-link">
       <p>Don't have an account? <a href="signup.html">Sign Up</a></p>
     </div>
@@ -98,9 +104,14 @@
       }, 3000);
     }
 
+<<<<<<< HEAD
     async function handleLogin(event) {
       event.preventDefault();
       const email = document.getElementById('login-email').value.trim();
+=======
+    function handleLogin() {
+      const email = document.getElementById('login-email').value;
+>>>>>>> c968cc5d84a1ac5624c763976e1bfb4b1a18921e
       const password = document.getElementById('login-password').value;
 
       if (!email || !password) {
@@ -108,6 +119,7 @@
         return;
       }
 
+<<<<<<< HEAD
       try {
         const response = await fetch('http://localhost:5000/api/auth/login', {
           method: 'POST',
@@ -124,12 +136,27 @@
         window.location.href = redirect || 'index.html';
       } catch (error) {
         showError('تعذر الاتصال بالسيرفر');
+=======
+      const savedUser = JSON.parse(localStorage.getItem('user'));
+
+      if (savedUser && email === savedUser.email && password === savedUser.password) {
+        localStorage.setItem('loggedIn', 'true');
+
+        // Check if there's a redirect after login (like trying to add to cart)
+        const redirect = localStorage.getItem('redirectAfterLogin');
+        localStorage.removeItem('redirectAfterLogin');
+
+        window.location.href = redirect || 'index.html';
+      } else {
+        showError('Incorrect email or password');
+>>>>>>> c968cc5d84a1ac5624c763976e1bfb4b1a18921e
       }
     }
 
     // Handle Enter key press
     document.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
+<<<<<<< HEAD
         if (e.target.closest('#login-form')) handleLogin(e);
       }
     });
@@ -137,3 +164,12 @@
   </script>
 </body>
 </html>
+=======
+        handleLogin();
+      }
+    });
+  </script>
+</body>
+</html>
+
+>>>>>>> c968cc5d84a1ac5624c763976e1bfb4b1a18921e
