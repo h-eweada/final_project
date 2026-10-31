@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart - Children's Clothing Store</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <script>
+    // Check authentication before page loads
+    (function() {
+      const isLoggedIn = localStorage.getItem('loggedIn') === 'true';
+      if (!isLoggedIn) {
+        // Save cart page as redirect destination
+        localStorage.setItem('redirectAfterLogin', 'cart.html');
+        
+        // Check if user has an account
+        const hasAccount = localStorage.getItem('user');
+        if (!hasAccount) {
+          // If no account exists, redirect to signup
+          window.location.replace('signup.html');
+        } else {
+          // If account exists but not logged in, redirect to login
+          window.location.replace('login.html');
+        }
+      }
+    })();
+  </script>
+  <style>
+    .cart-container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .cart-item {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .cart-item img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      margin-right: 1rem;
+    }
+
+    .cart-item-info {
+      flex-grow: 1;
+    }
+
+    .cart-item-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .quantity-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .quantity-btn {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .quantity-btn:hover {
+      background: var(--secondary-color);
+    }
+
+    .remove-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .remove-btn:hover {
+      background: #c0392b;
+    }
+
+    .cart-total {
+      margin-top: 2rem;
+      text-align: right;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .cart-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2rem;
+    }
+
+    .clear-cart {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .clear-cart:hover {
+      background: #c0392b;
+    }
+
+    .checkout-button {
+      display: inline-block;
+      padding: 1rem 2rem;
+      background-color: var(--primary-color);
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+
+    .checkout-button:hover {
+      background-color: var(--secondary-color);
+    }
+
+    .empty-cart {
+      text-align: center;
+      padding: 3rem;
+    }
+
+    .return-to-shop {
+      display: inline-block;
+      padding: 1rem 2rem;
+      background-color: var(--primary-color);
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="main-nav">
+      <div class="logo">
+        <a href="index.html">
+          <img src="https://i0.wp.com/katjie.com/wp-content/uploads/2024/05/cropped-Untitled-4.png?w=453&ssl=1" alt="Store Logo">
+        </a>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html#basics">Basics</a></li>
+        <li><a href="index.html#gift-box">Gift Box</a></li>
+        <li><a href="index.html#accessories">Accessories</a></li>
+        <li><a href="index.html#autumn">Autumn Collection</a></li>
+        <li><a href="index.html#summer">Summer Collection</a></li>
+        <li><a href="index.html#winter">Winter Collection</a></li>
+      </ul>
+      <div class="cart-icon">
+        <a href="cart.html">
+          <i class="fas fa-shopping-cart"></i>
+          <span class="cart-count">0</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="cart-container">
+    <h1>Shopping Cart</h1>
+    <div id="cart-items">
+      <!-- Cart items will be loaded dynamically -->
+    </div>
+    <div id="cart-summary">
+      <!-- Cart summary will be loaded dynamically -->
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="social-links">
+        <h3>SOCIAL</h3>
+        <a href="#"><i class="fab fa-facebook"></i></a>
+        <a href="#"><i class="fab fa-instagram"></i></a>
+        <a href="#"><i class="fab fa-whatsapp"></i></a>
+        <a href="#"><i class="fab fa-tiktok"></i></a>
+      </div>
+      <div class="footer-links">
+        <a href="about.html">About</a>
+        <a href="terms.html">Terms and Conditions</a>
+        <a href="returns.html">Returns Policy</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="contact.html">Contact us</a>
+      </div>
+    </div>
+    <div class="copyright">
+      © 2025 Children's Clothing Store
+    </div>
+  </footer>
+
+  <script>
+    // Update cart item quantity
+    function updateQuantity(productId, change) {
+      let cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const itemIndex = cart.findIndex(item => item.id === productId);
+      
+      if (itemIndex !== -1) {
+        const newQuantity = (cart[itemIndex].quantity || 1) + change;
+        if (newQuantity > 0) {
+          cart[itemIndex].quantity = newQuantity;
+          localStorage.setItem('cart', JSON.stringify(cart));
+          saveCartToServer(cart);
+          displayCart();
+        }
+      }
+    }
+
+    // Remove item from cart
+    function removeItem(productId) {
+      let cart = JSON.parse(localStorage.getItem('cart')) || [];
+      cart = cart.filter(item => item.id !== productId);
+      localStorage.setItem('cart', JSON.stringify(cart));
+      saveCartToServer(cart);
+      displayCart();
+      updateCartCount();
+    }
+
+    // Clear entire cart
+    function clearCart() {
+      localStorage.setItem('cart', JSON.stringify([]));
+      saveCartToServer([]);
+      displayCart();
+      updateCartCount();
+    }
+
+    // Update cart count in header
+    function updateCartCount() {
+      const cartCount = document.querySelector('.cart-count');
+      const isLoggedIn = localStorage.getItem('loggedIn') === 'true';
+      
+      if (isLoggedIn) {
+        const cart = JSON.parse(localStorage.getItem('cart')) || [];
+        cartCount.textContent = cart.reduce((total, item) => total + (item.quantity || 1), 0);
+      } else {
+        cartCount.textContent = '0';
+      }
+    }
+
+    async function saveCartToServer(items) {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!user?.id) return;
+      try {
+        await fetch('http://localhost:5000/api/cart/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+          },
+          body: JSON.stringify({ userId: user.id, items })
+        });
+      } catch (error) {
+        console.error('Could not save cart', error);
+      }
+    }
+
+    async function loadCartFromServer() {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!user?.id) return;
+      try {
+        const response = await fetch(`http://localhost:5000/api/cart/${encodeURIComponent(user.id)}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        localStorage.setItem('cart', JSON.stringify(data.items || []));
+      } catch (error) {
+        console.error('Could not load cart', error);
+      }
+    }
+
+    function displayCart() {
+      const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
+      const cartItemsContainer = document.getElementById('cart-items');
+      const cartSummary = document.getElementById('cart-summary');
+
+      if (cartItems.length === 0) {
+        cartItemsContainer.innerHTML = `
+          <div class="empty-cart">
+            <h2>Your cart is currently empty.</h2>
+            <a href="index.html" class="return-to-shop">Return to shop</a>
+          </div>
+        `;
+        cartSummary.innerHTML = '';
+        return;
+      }
+
+      let total = 0;
+      cartItemsContainer.innerHTML = cartItems.map(item => {
+        const itemTotal = item.price * (item.quantity || 1);
+        total += itemTotal;
+        return `
+          <div class="cart-item">
+            <img src="${item.image}" alt="${item.name}">
+            <div class="cart-item-info">
+              <h3>${item.name}</h3>
+              <p>${item.price.toFixed(2)} EGP</p>
+            </div>
+            <div class="cart-item-controls">
+              <div class="quantity-controls">
+                <button class="quantity-btn" onclick="updateQuantity(${item.id}, -1)">-</button>
+                <span>${item.quantity || 1}</span>
+                <button class="quantity-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
+              </div>
+              <button class="remove-btn" onclick="removeItem(${item.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      cartSummary.innerHTML = `
+        <div class="cart-actions">
+          <button class="clear-cart" onclick="clearCart()">Clear Cart</button>
+          <div class="cart-total">
+            <p>Total: ${total.toFixed(2)} EGP</p>
+            <a href="#" class="checkout-button">Proceed to Checkout</a>
+          </div>
+        </div>
+      `;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadCartFromServer();
+      displayCart();
+      updateCartCount();
+    });
+  </script>
+</body>

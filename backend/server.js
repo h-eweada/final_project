@@ -1,98 +1,126 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { createAdminClient } = require('@supabase/server/core');
 require('dotenv').config();
 
-const User = require('./models/user.js');
-const Cart = require('./models/cart.js');
-
 const app = express();
-
-// Middlewares
 app.use(express.json());
 app.use(cors());
 
-// الاتصال بقاعدة البيانات المحلية
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/my_website_db';
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('✅ تم الاتصال بقاعدة البيانات MongoDB بنجاح'))
-  .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err));
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY || !process.env.JWT_SECRET) {
+  console.error('❌ اضبط SUPABASE_URL وSUPABASE_SECRET_KEY وJWT_SECRET في backend/.env');
+  process.exit(1);
+}
 
-// 1. مسار تسجيل حساب جديد (Sign in / Register)
+const supabase = createAdminClient();
+
+function requireUser(req, res, next) {
+  const token = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.slice(7)
+    : null;
+  if (!token) return res.status(401).json({ message: 'سجّل الدخول أولاً' });
+  try {
+    req.authUser = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ message: 'جلسة الدخول غير صالحة، سجّل الدخول مرة أخرى' });
+  }
+}
+
+function publicUser(user) {
+  return { id: user.id, name: user.name, email: user.email };
+}
+
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
-
-    // التحقق من وجود المستخدم
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'البريد الإلكتروني مستخدم بالفعل' });
+    const name = String(req.body.name || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!name || !email || password.length < 6) {
+      return res.status(400).json({ message: 'أدخل الاسم والبريد وكلمة مرور لا تقل عن 6 أحرف' });
     }
 
-    // إنشاء المستخدم
-    const newUser = await User.create({ name, email, password });
+    const passwordHash = await bcrypt.hash(password, 12);
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert({ name, email, password: passwordHash })
+      .select('id, name, email')
+      .single();
+    if (error?.code === '23505') return res.status(400).json({ message: 'البريد الإلكتروني مستخدم بالفعل' });
+    if (error) throw error;
 
-    // إنشاء سلة تسوق فارغة مرتبطة بـ ID المستخدم
-    await Cart.create({ userId: newUser._id, items: [] });
-
-    res.status(201).json({ message: 'تم إنشاء الحساب بنجاح' });
+    const { error: cartError } = await supabase.from('carts').insert({ user_id: user.id, items: [] });
+    if (cartError) throw cartError;
+    res.status(201).json({ message: 'تم إنشاء الحساب بنجاح', user: publicUser(user) });
   } catch (error) {
-    res.status(500).json({ message: 'حدث خطأ في الخادم', error: error.message });
+    console.error('Signup error:', error.message);
+    res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
 
-// 2. مسار تسجيل الدخول (Login)
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user || !(await user.correctPassword(password, user.password))) {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, name, email, password')
+      .eq('email', email)
+      .maybeSingle();
+    if (error) throw error;
+    if (!user || !(await bcrypt.compare(String(req.body.password || ''), user.password))) {
       return res.status(401).json({ message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
     }
-
-    // إنشاء التوكن JWT
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret_key', {
-      expiresIn: '7d'
-    });
-
-    res.status(200).json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email }
-    });
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: publicUser(user) });
   } catch (error) {
-    res.status(500).json({ message: 'حدث خطأ في الخادم', error: error.message });
+    console.error('Login error:', error.message);
+    res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
 
-// 3. مسار جلب السلة (Get Cart)
-app.get('/api/cart/:userId', async (req, res) => {
+app.get('/api/cart/:userId', requireUser, async (req, res) => {
   try {
-    let cart = await Cart.findOne({ userId: req.params.userId });
-    if (!cart) {
-      cart = await Cart.create({ userId: req.params.userId, items: [] });
+    if (String(req.authUser.id) !== req.params.userId) return res.status(403).json({ message: 'غير مصرح' });
+    let { data, error } = await supabase
+      .from('carts')
+      .select('user_id, items, updated_at')
+      .eq('user_id', req.authUser.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      ({ data, error } = await supabase
+      .from('carts')
+      .upsert({ user_id: req.authUser.id, items: [] }, { onConflict: 'user_id' })
+      .select('user_id, items, updated_at')
+      .single());
     }
-    res.status(200).json(cart);
+    if (error) throw error;
+    res.json({ userId: data.user_id, items: data.items, updatedAt: data.updated_at });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ أثناء جلب السلة', error: error.message });
+    console.error('Get cart error:', error.message);
+    res.status(500).json({ message: 'خطأ أثناء جلب السلة' });
   }
 });
 
-// 4. مسار تحديث/حفظ عناصر السلة (Update Cart)
-app.post('/api/cart/update', async (req, res) => {
+app.post('/api/cart/update', requireUser, async (req, res) => {
   try {
     const { userId, items } = req.body;
-    const cart = await Cart.findOneAndUpdate(
-      { userId },
-      { items, updatedAt: Date.now() },
-      { new: true, upsert: true }
-    );
-    res.status(200).json(cart);
+    if (!userId || String(req.authUser.id) !== String(userId)) return res.status(403).json({ message: 'غير مصرح' });
+    if (!Array.isArray(items)) return res.status(400).json({ message: 'بيانات السلة غير صحيحة' });
+    const { data, error } = await supabase
+      .from('carts')
+      .upsert({ user_id: req.authUser.id, items, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .select('user_id, items, updated_at')
+      .single();
+    if (error) throw error;
+    res.json({ userId: data.user_id, items: data.items, updatedAt: data.updated_at });
   } catch (error) {
-    res.status(500).json({ message: 'خطأ أثناء تحديث السلة', error: error.message });
+    console.error('Update cart error:', error.message);
+    res.status(500).json({ message: 'خطأ أثناء تحديث السلة' });
   }
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 الخادم يعمل على المنفذ ${PORT} ومتصل بـ Supabase`));
