@@ -1,71 +1,41 @@
 // Sample product data
 const products = [
-    {
-        id: 1,
-        name: "Velvet Bodysuit ",
-        price: 435.00,
-        image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-27-at-4.08.23-PM-1.jpeg.webp",
-        category: "summer"
-    },
-    {
-        id: 2,
-        name: "Carrots Bodysuit ",
-        price: 375.00,
-        image: "https://i0.wp.com/katjie.com/wp-content/uploads/2025/03/IMG_0326-scaled.jpg?resize=1320%2C1980&ssl=1",
-        category: "basics"
-    },
-    {
-        id: 3,
-        name: "Blue Ice Bodysuit",
-        price: 480.00 ,
-        image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.00-PM.jpeg.webp",
-        category: "basics"
-    },
-    {
-        id: 4,
-        name: "stitch Bodysuit",
-        price: 450.00,
-        image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.22-PM.jpeg.webp",
-        category: "basics"
-    },
-    {
-        id: 5,
-        name: "Disney Christmas Pyjama 3 pieces",
-        price: 375.00,
-        image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.11-PM-1.jpeg.webp",
-        category: "basics"
-    },
-    {
-        id: 6,
-        name: "Pooh Bear Pyjama",
-        price: 480.00,
-        image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.10-PM.jpeg.webp",
-        category: "basics"
-    },
-    {
-        id: 7,
-        name: "Girafe Melton bodysuit",
-        price: 460.00,
-        image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.19-PM-1.jpeg.webp",
-        category: "basics"
-    },
-     {
-        id: 8,
-        name: "Girafe Melton bodysuit",
-        price: 85.00,
-        image: "https://katjie.com/wp-content/uploads/2024/06/201-1-scaled-1.jpg.webp",
-        category: "basics"
-    },
-    // Add more products as needed
+    { id: 1, name: "Velvet Bodysuit ", price: 435.00, image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-27-at-4.08.23-PM-1.jpeg.webp", category: "summer" },
+    { id: 2, name: "Carrots Bodysuit ", price: 375.00, image: "https://i0.wp.com/katjie.com/wp-content/uploads/2025/03/IMG_0326-scaled.jpg?resize=1320%2C1980&ssl=1", category: "basics" },
+    { id: 3, name: "Blue Ice Bodysuit", price: 480.00, image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.00-PM.jpeg.webp", category: "basics" },
+    { id: 4, name: "stitch Bodysuit", price: 450.00, image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.22-PM.jpeg.webp", category: "basics" },
+    { id: 5, name: "Disney Christmas Pyjama 3 pieces", price: 375.00, image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.11-PM-1.jpeg.webp", category: "basics" },
+    { id: 6, name: "Pooh Bear Pyjama", price: 480.00, image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.10-PM.jpeg.webp", category: "basics" },
+    { id: 7, name: "Girafe Melton bodysuit", price: 460.00, image: "https://katjie.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-21-at-4.21.19-PM-1.jpeg.webp", category: "basics" },
+    { id: 8, name: "Girafe Melton bodysuit", price: 85.00, image: "https://katjie.com/wp-content/uploads/2024/06/201-1-scaled-1.jpg.webp", category: "basics" }
 ];
 
 // Cart functionality
 let cart = JSON.parse(localStorage.getItem('cart')) || [];
 
+async function saveCartToServer() {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!user?.id || localStorage.getItem('loggedIn') !== 'true') return;
+    try {
+        const response = await fetch('http://localhost:5000/api/cart/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+            },
+            body: JSON.stringify({ userId: user.id, items: cart })
+        });
+        if (!response.ok) console.error('Could not save cart to server');
+    } catch (error) {
+        console.error('Could not connect to save cart', error);
+    }
+}
+
 function updateCartCount() {
     const cartCount = document.querySelector('.cart-count');
+    if (!cartCount) return;
+
     const isLoggedIn = localStorage.getItem('loggedIn') === 'true';
-    
     if (isLoggedIn) {
         cartCount.textContent = cart.reduce((total, item) => total + (item.quantity || 1), 0);
     } else {
@@ -74,45 +44,23 @@ function updateCartCount() {
 }
 
 function handleCartClick(e) {
-    // Always prevent default navigation
     e.preventDefault();
-    
     const isLoggedIn = localStorage.getItem('loggedIn') === 'true';
     if (!isLoggedIn) {
-        // Save cart page as redirect destination
         localStorage.setItem('redirectAfterLogin', 'cart.html');
-        
-        // Check if user has an account
         const hasAccount = localStorage.getItem('user');
-        if (!hasAccount) {
-            // If no account exists, redirect to signup
-            window.location.href = 'signup.html';
-        } else {
-            // If account exists but not logged in, redirect to login
-            window.location.href = 'login.html';
-        }
+        window.location.href = hasAccount ? 'login.html' : 'signup.html';
     } else {
-        // Only navigate to cart if logged in
         window.location.href = 'cart.html';
     }
 }
 
-function addToCart(productId) {
-    // Check if user is logged in
+async function addToCart(productId) {
     const isLoggedIn = localStorage.getItem('loggedIn') === 'true';
     if (!isLoggedIn) {
-        // Save current page as redirect destination
         localStorage.setItem('redirectAfterLogin', window.location.href);
-        
-        // Check if user has an account
         const hasAccount = localStorage.getItem('user');
-        if (!hasAccount) {
-            // If no account exists, redirect to signup
-            window.location.href = 'signup.html';
-        } else {
-            // If account exists but not logged in, redirect to login
-            window.location.href = 'cart.html';
-        }
+        window.location.href = hasAccount ? 'login.html' : 'signup.html'; // تصحيح الرابط
         return;
     }
 
@@ -123,21 +71,20 @@ function addToCart(productId) {
         if (existingItem) {
             existingItem.quantity = (existingItem.quantity || 1) + 1;
         } else {
-            cart.push({
-                ...product,
-                quantity: 1
-            });
+            cart.push({ ...product, quantity: 1 });
         }
         
         localStorage.setItem('cart', JSON.stringify(cart));
         updateCartCount();
+        await saveCartToServer(); // تم إضافة استدعاء لحفظ السلة بالسيرفر
         alert('Product added to cart!');
     }
 }
 
-// Load products
 function loadProducts(category = 'all') {
     const productsGrid = document.querySelector('.products-grid');
+    if (!productsGrid) return;
+
     const filteredProducts = category === 'all' 
         ? products 
         : products.filter(p => p.category === category);
@@ -156,19 +103,16 @@ function loadProducts(category = 'all') {
     `).join('');
 }
 
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
     updateCartCount();
     
-    // Add click handler to cart icon
     const cartLink = document.querySelector('.cart-icon a');
     if (cartLink) {
         cartLink.addEventListener('click', handleCartClick);
     }
 });
 
-// Handle navigation
 document.querySelectorAll('.nav-links a').forEach(link => {
     link.addEventListener('click', (e) => {
         e.preventDefault();
@@ -176,8 +120,9 @@ document.querySelectorAll('.nav-links a').forEach(link => {
         loadProducts(category);
     });
 }); 
-// كود كود صفحة التسجيل (signup.html)
-const signupForm = document.getElementById('signupForm'); // تأكدي إن id الفيلد صح في signup.html
+
+// كود صفحة التسجيل (signup.html)
+const signupForm = document.getElementById('signupForm');
 if (signupForm) {
   signupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -208,7 +153,7 @@ if (signupForm) {
 }
 
 // كود صفحة تسجيل الدخول (login.html)
-const loginForm = document.getElementById('loginForm'); // تأكدي إن id الفيلد صح في login.html
+const loginForm = document.getElementById('loginForm');
 if (loginForm) {
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -225,12 +170,15 @@ if (loginForm) {
 
       const data = await res.json();
       if (res.ok) {
-        // حفظ الـ Token وبيانات المستخدم في الـ LocalStorage
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('loggedIn', 'true'); // إضافة تعيين حالة الدخول
 
         alert('تم تسجيل الدخول بنجاح!');
-        window.location.href = 'index.html'; // التحويل للرئيسية
+        
+        const redirectUrl = localStorage.getItem('redirectAfterLogin') || 'index.html';
+        localStorage.removeItem('redirectAfterLogin');
+        window.location.href = redirectUrl;
       } else {
         alert(data.message);
       }
